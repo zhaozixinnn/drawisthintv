@@ -105,6 +105,24 @@ function PlayPageClient() {
     return true;
   });
 
+  // 弹幕密度（从 localStorage 继承，默认 100%）
+  const [danmakuDensity, setDanmakuDensity] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const v = localStorage.getItem('danmaku_density');
+      if (v !== null) {
+        const density = parseInt(v, 10);
+        if (!isNaN(density) && density >= 0 && density <= 100) {
+          return density;
+        }
+      }
+    }
+    return 100;
+  });
+  const danmakuDensityRef = useRef(danmakuDensity);
+  useEffect(() => {
+    danmakuDensityRef.current = danmakuDensity;
+  }, [danmakuDensity]);
+
   // 当前播放时间（用于弹幕同步）
   const [currentPlayTime, setCurrentPlayTime] = useState(0);
 
@@ -1609,6 +1627,41 @@ function PlayPageClient() {
             },
           },
           {
+            name: '弹幕密度',
+            html: '弹幕密度',
+            tooltip: `${danmakuDensityRef.current}%`,
+            onClick: function () {
+              // 弹出输入框让用户输入百分比
+              const currentDensity = danmakuDensityRef.current;
+              const input = prompt(`请输入弹幕密度 (0-100):`, String(currentDensity));
+              
+              if (input !== null) {
+                const value = parseInt(input, 10);
+                
+                // 验证输入值
+                if (!isNaN(value) && value >= 0 && value <= 100) {
+                  try {
+                    localStorage.setItem('danmaku_density', String(value));
+                    setDanmakuDensity(value);
+                    if (artPlayerRef.current) {
+                      artPlayerRef.current.setting.update({
+                        name: '弹幕密度',
+                        tooltip: `${value}%`
+                      });
+                    }
+                    return `${value}%`;
+                  } catch (_) {
+                    // ignore
+                  }
+                } else {
+                  alert('请输入 0-100 之间的数字');
+                }
+              }
+              
+              return `${danmakuDensityRef.current}%`;
+            },
+          },
+          {
             html: '弹幕',
             icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="#ffffff"/></svg>',
             tooltip: danmakuEnabled ? '已开启' : '已关闭',
@@ -2007,6 +2060,7 @@ function PlayPageClient() {
                   enabled={danmakuEnabled}
                   playerContainer={artRef.current}
                   onSourceSelected={(sourceName: string) => setSelectedDanmakuSource(sourceName)}
+                  density={danmakuDensity}
                 />
 
                 {/* 弹幕选择器 */}

@@ -15,6 +15,7 @@ interface DanmakuProps {
   enabled: boolean;
   playerContainer?: HTMLElement | null;
   onSourceSelected?: (sourceName: string) => void;
+  density?: number; // 弹幕密度 (0-100)
 }
 
 /**
@@ -29,6 +30,7 @@ export default function Danmaku({
   enabled,
   playerContainer,
   onSourceSelected,
+  density = 100, // 默认密度100%
 }: DanmakuProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [danmakuList, setDanmakuList] = useState<DanmakuItem[]>([]);
@@ -141,9 +143,17 @@ export default function Danmaku({
     const currentSecond = Math.floor(currentTime);
 
     // 获取当前时间应该显示的弹幕
-    const currentDanmaku = danmakuList.filter(
+    let currentDanmaku = danmakuList.filter(
       (item) => Math.floor(item.time) === currentSecond
     );
+
+    // 根据密度过滤弹幕数量
+    if (density < 100 && currentDanmaku.length > 0) {
+      const targetCount = Math.ceil((currentDanmaku.length * density) / 100);
+      // 随机选择要显示的弹幕，保持随机性
+      const shuffled = [...currentDanmaku].sort(() => Math.random() - 0.5);
+      currentDanmaku = shuffled.slice(0, targetCount);
+    }
 
     // 为每个弹幕创建元素
     currentDanmaku.forEach((item) => {
@@ -253,7 +263,7 @@ export default function Danmaku({
         }, 3000);
       }
     });
-  }, [currentTime, danmakuList, enabled, loading, playerContainer]);
+  }, [currentTime, danmakuList, enabled, loading, playerContainer, density]);
 
   // 重置弹幕加载状态当视频标题变化时
   useEffect(() => {
