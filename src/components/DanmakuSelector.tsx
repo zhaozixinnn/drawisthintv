@@ -2,8 +2,8 @@
 
 'use client';
 
-import { X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Search, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 import { AnimeOption, extractEpisodeNumber, searchEpisodes } from '@/lib/danmaku.client';
 
@@ -33,27 +33,58 @@ export default function DanmakuSelector({
   const [selectedEpisode, setSelectedEpisode] = useState<number | null>(
     currentEpisode || null
   );
+  const [searchKeyword, setSearchKeyword] = useState<string>(''); // 手动搜索关键词
+  const [hasManualSearched, setHasManualSearched] = useState(false); // 是否已经手动搜索过
+  const [hasSearched, setHasSearched] = useState(false); // 是否已经执行过任何搜索
+  const lastAutoSearchTitleRef = useRef<string>(''); // 记录上次自动搜索的标题
 
-  useEffect(() => {
-    const loadOptions = async () => {
-      if (!videoTitle) return;
+  // 执行搜索的函数
+  const performSearch = async (keyword: string, isManual = false) => {
+    if (!keyword.trim()) return;
 
-      try {
-        setLoading(true);
-        setError(null);
-        const options = await searchEpisodes(videoTitle);
-        setAnimeOptions(options);
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error('搜索弹幕选项失败:', err);
-        setError(err instanceof Error ? err.message : '搜索失败');
-      } finally {
-        setLoading(false);
+    try {
+      setLoading(true);
+      setError(null);
+      const options = await searchEpisodes(keyword.trim());
+      setAnimeOptions(options);
+      setHasSearched(true);
+      if (isManual) {
+        setHasManualSearched(true);
       }
-    };
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('搜索弹幕选项失败:', err);
+      setError(err instanceof Error ? err.message : '搜索失败');
+      setHasSearched(true); // 即使失败也标记为已搜索
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    loadOptions();
+  // 初始加载：使用 videoTitle 自动搜索
+  useEffect(() => {
+    if (videoTitle && videoTitle !== lastAutoSearchTitleRef.current) {
+      // 如果 videoTitle 变化了，重置手动搜索状态并自动搜索
+      lastAutoSearchTitleRef.current = videoTitle;
+      setHasManualSearched(false);
+      setHasSearched(false); // 重置搜索状态
+      setSearchKeyword(''); // 清空搜索框
+      performSearch(videoTitle, false);
+    } else if (videoTitle && !hasManualSearched && lastAutoSearchTitleRef.current === '') {
+      // 首次加载时自动搜索
+      lastAutoSearchTitleRef.current = videoTitle;
+      performSearch(videoTitle, false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoTitle]);
+
+  // 处理手动搜索
+  const handleSearch = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (searchKeyword.trim()) {
+      performSearch(searchKeyword, true);
+    }
+  };
 
   const handleAnimeSelect = (anime: AnimeOption) => {
     setSelectedAnime(anime);
@@ -114,6 +145,7 @@ export default function DanmakuSelector({
   const handleBack = () => {
     setSelectedAnime(null);
     setSelectedEpisode(null);
+    // 返回时不清空搜索结果，但可以重新搜索
   };
 
   return (
@@ -148,6 +180,29 @@ export default function DanmakuSelector({
 
         {/* 内容区域 */}
         <div className="p-4 overflow-y-auto max-h-[calc(80vh-80px)]">
+          {/* 搜索框 - 只在未选择动漫时显示 */}
+          {!selectedAnime && (
+            <form onSubmit={handleSearch} className="mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                <input
+                  type="text"
+                  value={searchKeyword}
+                  onChange={(e) => setSearchKeyword(e.target.value)}
+                  placeholder={videoTitle ? `自动搜索: ${videoTitle} (可输入其他关键词)` : '输入关键词搜索弹幕源...'}
+                  className="w-full h-12 pl-10 pr-20 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+                <button
+                  type="submit"
+                  disabled={loading || !searchKeyword.trim()}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                >
+                  搜索
+                </button>
+              </div>
+            </form>
+          )}
+
           {loading && (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
@@ -161,7 +216,7 @@ export default function DanmakuSelector({
             </div>
           )}
 
-          {!loading && !error && animeOptions.length === 0 && (
+          {!loading && !error && animeOptions.length === 0 && hasSearched && (
             <div className="py-8 text-center">
               <p className="text-gray-500 dark:text-gray-400">未找到匹配的弹幕源</p>
             </div>
