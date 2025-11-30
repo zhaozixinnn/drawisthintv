@@ -123,6 +123,24 @@ function PlayPageClient() {
     danmakuDensityRef.current = danmakuDensity;
   }, [danmakuDensity]);
 
+  // 弹幕行数（从 localStorage 继承，默认 0 表示不限制）
+  const [danmakuMaxTracks, setDanmakuMaxTracks] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const v = localStorage.getItem('danmaku_max_tracks');
+      if (v !== null) {
+        const tracks = parseInt(v, 10);
+        if (!isNaN(tracks) && tracks >= 0) {
+          return tracks;
+        }
+      }
+    }
+    return 0; // 0 表示不限制
+  });
+  const danmakuMaxTracksRef = useRef(danmakuMaxTracks);
+  useEffect(() => {
+    danmakuMaxTracksRef.current = danmakuMaxTracks;
+  }, [danmakuMaxTracks]);
+
   // 当前播放时间（用于弹幕同步）
   const [currentPlayTime, setCurrentPlayTime] = useState(0);
 
@@ -1662,6 +1680,45 @@ function PlayPageClient() {
             },
           },
           {
+            name: '弹幕行数',
+            html: '弹幕行数',
+            tooltip: danmakuMaxTracksRef.current === 0 ? '不限制' : `${danmakuMaxTracksRef.current}行`,
+            onClick: function () {
+              // 弹出输入框让用户输入行数
+              const currentTracks = danmakuMaxTracksRef.current;
+              const input = prompt(`请输入弹幕行数 (0表示不限制):`, String(currentTracks));
+              
+              if (input !== null) {
+                const value = parseInt(input, 10);
+                
+                // 验证输入值
+                if (!isNaN(value) && value >= 0) {
+                  try {
+                    localStorage.setItem('danmaku_max_tracks', String(value));
+                    setDanmakuMaxTracks(value);
+                    // 调用弹幕组件的设置方法
+                    if (typeof window !== 'undefined' && (window as any).__setDanmakuMaxTracks) {
+                      (window as any).__setDanmakuMaxTracks(value);
+                    }
+                    if (artPlayerRef.current) {
+                      artPlayerRef.current.setting.update({
+                        name: '弹幕行数',
+                        tooltip: value === 0 ? '不限制' : `${value}行`
+                      });
+                    }
+                    return value === 0 ? '不限制' : `${value}行`;
+                  } catch (_) {
+                    // ignore
+                  }
+                } else {
+                  alert('请输入大于等于 0 的数字');
+                }
+              }
+              
+              return danmakuMaxTracksRef.current === 0 ? '不限制' : `${danmakuMaxTracksRef.current}行`;
+            },
+          },
+          {
             html: '弹幕',
             icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="#ffffff"/></svg>',
             tooltip: danmakuEnabled ? '已开启' : '已关闭',
@@ -2061,6 +2118,7 @@ function PlayPageClient() {
                   playerContainer={artRef.current}
                   onSourceSelected={(sourceName: string) => setSelectedDanmakuSource(sourceName)}
                   density={danmakuDensity}
+                  maxTracks={danmakuMaxTracks}
                 />
 
                 {/* 弹幕选择器 */}
