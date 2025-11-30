@@ -232,6 +232,7 @@ export default function Danmaku({
   const isInFullscreenRef = useRef(false); // 记录是否在全屏状态
   const lastDanmakuTimeRef = useRef<number>(0); // 上次显示弹幕的时间
   const [maxTracksState, setMaxTracksState] = useState(maxTracks); // 弹幕行数状态
+  const lastCurrentTimeRef = useRef<number>(0); // 记录上一次的 currentTime，用于检测回退
 
   // 核心系统
   const activeInstancesRef = useRef<Map<string, DanmakuInstance>>(new Map());
@@ -268,6 +269,7 @@ export default function Danmaku({
         displayedDanmakuRef.current.clear();
         // 重置弹幕显示时间，确保切换集数后弹幕从正确的时间开始显示
         lastDanmakuTimeRef.current = 0;
+        lastCurrentTimeRef.current = 0;
       };
       // 获取当前弹幕源
       (window as any).__getDanmakuSource = () => {
@@ -327,6 +329,7 @@ export default function Danmaku({
       displayedDanmakuRef.current.clear();
       // 重置弹幕显示时间，确保切换集数后弹幕从正确的时间开始显示
       lastDanmakuTimeRef.current = 0;
+      lastCurrentTimeRef.current = 0;
     }
   }, [currentEpisode, selectedAnime, manualEpisode]);
 
@@ -554,9 +557,14 @@ export default function Danmaku({
       // 检查视频时间是否到达弹幕显示时间
       const videoElapsed = currentTime - instance.startTime;
       if (videoElapsed < 0) {
-        // 还未到显示时间
+        // 还未到显示时间，隐藏弹幕
         instance.element.style.opacity = '0';
         continue;
+      }
+      
+      // 如果弹幕已经显示过但当前时间回退到弹幕显示时间之前，重新显示
+      if (videoElapsed >= 0 && instance.element.style.opacity === '0') {
+        instance.element.style.opacity = String(instance.opacity);
       }
 
       if (elapsed > instance.duration) {
@@ -643,11 +651,16 @@ export default function Danmaku({
 
     const currentSecond = Math.floor(currentTime);
 
+    // 检测是否是回退操作
+    const isSeekingBackward = currentTime < lastCurrentTimeRef.current;
+    lastCurrentTimeRef.current = currentTime;
+
     // 根据密度计算显示间隔
     const displayInterval = density > 0 ? Math.max(0.5, 100 / density) : Infinity;
     const timeSinceLastDanmaku = currentTime - lastDanmakuTimeRef.current;
 
-    if (timeSinceLastDanmaku < displayInterval) {
+    // 如果是回退操作，强制显示弹幕，不受显示间隔限制
+    if (!isSeekingBackward && timeSinceLastDanmaku < displayInterval) {
       return;
     }
 
@@ -657,7 +670,7 @@ export default function Danmaku({
     ).length;
 
     const maxConcurrent = Math.max(5, Math.floor((density / 100) * 50));
-    if (scrollCount >= maxConcurrent) {
+    if (!isSeekingBackward && scrollCount >= maxConcurrent) {
       return;
     }
 
@@ -666,6 +679,36 @@ export default function Danmaku({
     let currentDanmaku = danmakuList.filter(
       (item) => Math.floor(item.time) >= currentSecond && Math.floor(item.time) < currentSecond + timeWindow
     );
+
+    // 当进度条向左移动时，重新显示之前时间段的弹幕
+    if (isSeekingBackward) {
+      // 清除当前时间之后的所有弹幕，因为它们还没有到达显示时间
+      for (const [key, instance] of Array.from(activeInstancesRef.current.entries())) {
+        if (instance.startTime > currentTime) {
+          instance.isActive = false;
+          if (instance.type === 1 && trackManagerRef.current) {
+            trackManagerRef.current.removeFromTrack(instance);
+          }
+          poolRef.current.release(instance.element);
+          activeInstancesRef.current.delete(key);
+          displayedDanmakuRef.current.delete(key);
+        }
+      }
+      
+      // 重新获取当前时间段的弹幕，允许之前显示过的弹幕重新显示
+      // 清除当前时间段的已显示记录，让它们可以重新显示
+      for (const item of danmakuList) {
+        if (Math.floor(item.time) === currentSecond) {
+          const key = `${item.time}-${item.text}`;
+          displayedDanmakuRef.current.delete(key);
+        }
+      }
+      
+      // 重新获取当前时间段的弹幕
+      currentDanmaku = danmakuList.filter(
+        (item) => Math.floor(item.time) === currentSecond
+      );
+    }
 
     // 根据密度过滤
     if (currentDanmaku.length > 0) {
