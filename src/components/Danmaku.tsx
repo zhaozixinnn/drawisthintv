@@ -266,6 +266,8 @@ export default function Danmaku({
         danmakuLoadedRef.current = false;
         setDanmakuList([]);
         displayedDanmakuRef.current.clear();
+        // 重置弹幕显示时间，确保切换集数后弹幕从正确的时间开始显示
+        lastDanmakuTimeRef.current = 0;
       };
       // 获取当前弹幕源
       (window as any).__getDanmakuSource = () => {
@@ -323,6 +325,8 @@ export default function Danmaku({
       danmakuLoadedRef.current = false;
       setDanmakuList([]);
       displayedDanmakuRef.current.clear();
+      // 重置弹幕显示时间，确保切换集数后弹幕从正确的时间开始显示
+      lastDanmakuTimeRef.current = 0;
     }
   }, [currentEpisode, selectedAnime, manualEpisode]);
 
@@ -507,7 +511,7 @@ export default function Danmaku({
 
   // RAF 动画循环
   const animate = useCallback(() => {
-    if (!containerRef.current || !enabled) {
+    if (!containerRef.current) {
       rafIdRef.current = null;
       return;
     }
@@ -523,7 +527,19 @@ export default function Danmaku({
       trackManagerRef.current.updateContainerHeight(containerHeight);
     }
 
-    // 更新所有弹幕
+    // 如果弹幕开关关闭，只更新弹幕显示状态，不执行动画
+    if (!enabled) {
+      // 将所有弹幕设置为隐藏状态
+      for (const instance of Array.from(activeInstancesRef.current.values())) {
+        if (instance.isActive) {
+          instance.element.style.opacity = '0';
+        }
+      }
+      rafIdRef.current = requestAnimationFrame(animate);
+      return;
+    }
+
+    // 弹幕开关开启时，执行正常动画
     const instancesToRemove: string[] = [];
 
     for (const [key, instance] of Array.from(activeInstancesRef.current.entries())) {
@@ -593,7 +609,7 @@ export default function Danmaku({
 
   // 启动/停止动画循环
   useEffect(() => {
-    if (enabled && containerRef.current) {
+    if (containerRef.current) {
       lastFrameTimeRef.current = performance.now();
       if (!rafIdRef.current) {
         rafIdRef.current = requestAnimationFrame(animate);
@@ -611,11 +627,14 @@ export default function Danmaku({
         rafIdRef.current = null;
       }
     };
-  }, [enabled, animate]);
+  }, [animate]);
 
   // 显示弹幕
   useEffect(() => {
-    if (!enabled || !containerRef.current || loading || !trackManagerRef.current) return;
+    if (!containerRef.current || loading || !trackManagerRef.current) return;
+
+    // 如果弹幕开关关闭，不创建新弹幕，但保留现有弹幕
+    if (!enabled) return;
 
     const container = containerRef.current;
     if (!container.parentElement) {
@@ -911,8 +930,6 @@ export default function Danmaku({
     };
   }, [playerContainer]);
 
-  if (!enabled) return null;
-
   return (
     <>
       {/* 弹幕显示容器 */}
@@ -927,6 +944,7 @@ export default function Danmaku({
           height: '100%',
           pointerEvents: 'none',
           overflow: 'hidden',
+          // 容器始终存在，弹幕开关只控制弹幕动画的显示与隐藏
         }}
       >
         {error && (
