@@ -267,43 +267,38 @@ export async function searchAnime(
 }
 
 /**
- * 根据关键字匹配动漫（自动匹配）
- * @param keyword 搜索关键字
- * @param platformPriority 平台优先级（可选，如 "qiyi"）
+ * 根据关键词搜索所有匹配的剧集信息
+ * @param animeTitle 动漫标题（搜索关键字）
  */
-export async function matchAnime(
-  keyword: string,
-  platformPriority?: string
-): Promise<AnimeSearchResult['data']> {
-  if (!keyword) {
-    throw new Error('搜索关键字不能为空');
+
+export async function matchAnime(fileName: string) {
+  if (!fileName) {
+    throw new Error("fileName 不能为空");
   }
 
   const baseUrl = getDanmakuApiBaseUrl();
-  const body: { keyword: string; platform?: string } = { keyword };
-  if (platformPriority) {
-    body.platform = platformPriority;
-  }
 
   try {
     const response = await fetch(`${baseUrl}/api/v2/match`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json"
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ fileName })
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! Status: ${response.status}`);
+      throw new Error(`HTTP error! status = ${response.status}`);
     }
 
-    const json: AnimeSearchResult = await response.json();
-    return json.data || json.list || [];
-  } catch (error) {
+    const json = await response.json();
+
+    // 直接返回 matches
+    return json.matches || [];
+  } catch (err) {
     // eslint-disable-next-line no-console
-    console.error('匹配动漫失败:', error);
-    throw new Error(`匹配动漫失败: ${(error as Error).message}`);
+    console.error("matchAnime 失败:", err);
+    throw err;
   }
 }
 
@@ -392,6 +387,32 @@ export interface VideoInfo {
   year?: string;
   episode?: number; // 集数（从1开始）
   type?: 'tv' | 'movie'; // 类型：电视剧或电影
+}
+
+/**
+ * 从标题中提取季数（Season）
+ * @param title 动漫标题
+ * @returns 季数（从 1 开始），如果无法提取则返回 1
+ */
+export function extractSeasonFromTitle(title: string): number {
+  if (!title) return 1;
+
+  title = title.toLowerCase();
+
+  // 正则1：S01、S1、Season 1、Season01
+  const match = title.match(/(?:season|s)\s*?(\d{1,2})/i);
+  if (match && match[1]) {
+    return Number(match[1]);
+  }
+
+  // 正则2：中文“第1季、第2季”
+  const cnMatch = title.match(/第\s*(\d+)\s*季/);
+  if (cnMatch && cnMatch[1]) {
+    return Number(cnMatch[1]);
+  }
+
+  // 默认季别
+  return 1;
 }
 
 /**
