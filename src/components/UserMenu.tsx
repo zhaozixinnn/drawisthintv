@@ -52,7 +52,7 @@ export const UserMenu: React.FC = () => {
   const [isDoubanDropdownOpen, setIsDoubanDropdownOpen] = useState(false);
   const [isDoubanImageProxyDropdownOpen, setIsDoubanImageProxyDropdownOpen] = useState(false);
 
-  const [autoDanmakuEnabled, setAutoDanmakuEnabled] = useState(true);
+  const [autoDanmakuEnabled, setAutoDanmakuEnabled] = useState(false);
   const [preferredDanmakuPlatform, setPreferredDanmakuPlatform] = useState("bilibili1");
   const [isDanmakuPlatformDropdownOpen, setIsDanmakuPlatformDropdownOpen] = useState(false);
 
@@ -485,6 +485,9 @@ export const UserMenu: React.FC = () => {
       localStorage.setItem('doubanDataSource', defaultDoubanProxyType);
       localStorage.setItem('doubanImageProxyType', defaultDoubanImageProxyType);
       localStorage.setItem('doubanImageProxyUrl', defaultDoubanImageProxyUrl);
+      
+      localStorage.setItem('autoDanmakuEnabled', JSON.stringify(false));
+      localStorage.setItem('preferredDanmakuPlatform', 'bilibili1');
     }
   };
 
