@@ -151,6 +151,9 @@ function PlayPageClient() {
   const [autoDanmakuEnabled, setAutoDanmakuEnabled] = useState(false);
   const [preferredDanmakuPlatform, setPreferredDanmakuPlatform] = useState("bilibili1");  
 
+  const [currentTooltip, setCurrentTooltip] = useState('');
+  const [selectedState, setSelectedState] = useState(false);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -184,10 +187,10 @@ function PlayPageClient() {
     let matchedEpisode: any = null;
   
     /** ① 用户手动选择某一集（权重大最高） */
-    if (selectedDanmakuEpisode !== undefined) {
+    if (selectedDanmakuEpisode !== undefined && selectedState) {
       matchedEpisode = selectedDanmakuAnime.episodes[selectedDanmakuEpisode - 1];
-      setSelectedDanmakuEpisode(undefined);
       setAutoDanmakuEnabled(false);
+      setSelectedState(false);
     }
   
     /** ② 自动匹配模式：直接使用第 0 集 */
@@ -220,6 +223,8 @@ function PlayPageClient() {
     }
   
     if (!matchedEpisode) return;
+
+    setCurrentTooltip(matchedEpisode.episodeTitle);
   
     const episodeIndex = selectedDanmakuAnime.episodes.indexOf(matchedEpisode);
     const episodeNumber = episodeIndex + 1;
@@ -248,7 +253,7 @@ function PlayPageClient() {
         setDanmukuUrl("");
       }
     })();
-  }, [currentEpisodeIndex, selectedDanmakuAnime, isDanmakuPluginReady]);
+  }, [currentEpisodeIndex, selectedDanmakuAnime, selectedDanmakuEpisode, isDanmakuPluginReady]);
   
 
   // 当弹幕 URL 变化时，动态更新插件弹幕源
@@ -1767,7 +1772,7 @@ function PlayPageClient() {
           {
             name: '弹幕源',
             html: '弹幕源',
-            tooltip: '未选择',
+            tooltip: currentTooltip || '未选择',
             onClick: function () {
               setShowDanmakuSelector(true);
             },
@@ -2158,7 +2163,7 @@ function PlayPageClient() {
                 ></div>
 
                 {/* 弹幕选择器 */}
-                {showDanmakuSelector && (
+                <div style={{ display: showDanmakuSelector ? 'block' : 'none' }}>
                   <DanmakuSelector
                     videoTitle={videoTitle}
                     currentEpisode={currentEpisodeIndex + 1}
@@ -2175,10 +2180,20 @@ function PlayPageClient() {
                       setShowDanmakuSelector(false);
                       setSelectedDanmakuAnime(anime);
                       setSelectedDanmakuEpisode(episodeNumber);
+                      setSelectedState(true);
                     }}
-                    onClose={() => setShowDanmakuSelector(false)}
+                    onClose={() => {
+                      setShowDanmakuSelector(false)
+                      // 更新 tooltip
+                      if (artPlayerRef.current) {
+                        artPlayerRef.current.setting.update({
+                          name: "弹幕源",
+                          tooltip: currentTooltip|| '',
+                        });
+                      }
+                    }}
                   />
-                )}
+                </div>
 
                 {/* 换源加载蒙层 */}
                 {isVideoLoading && (
