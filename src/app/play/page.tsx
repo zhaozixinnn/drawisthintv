@@ -2188,7 +2188,7 @@ function PlayPageClient() {
                       if (artPlayerRef.current) {
                         artPlayerRef.current.setting.update({
                           name: "弹幕源",
-                          tooltip: currentTooltip|| '',
+                          tooltip: currentTooltip|| '未选择',
                         });
                       }
                     }}

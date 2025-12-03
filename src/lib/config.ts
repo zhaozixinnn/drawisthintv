@@ -332,7 +332,7 @@ async function initConfig() {
           process.env.NEXT_PUBLIC_DISABLE_YELLOW_FILTER === 'true',
             DanmakuApiBaseUrl:
               process.env.NEXT_PUBLIC_DANMU_API_BASE_URL ||
-              'https://thriving-dragon-80fe24.netlify.app/',
+              'https://dm.stardm.us.kg',
         TVBoxEnabled: false,
         TVBoxPassword: '',
           },
@@ -391,7 +391,7 @@ async function initConfig() {
           process.env.NEXT_PUBLIC_DISABLE_YELLOW_FILTER === 'true',
         DanmakuApiBaseUrl:
           process.env.NEXT_PUBLIC_DANMU_API_BASE_URL ||
-          'https://thriving-dragon-80fe24.netlify.app/',
+          'https://dm.stardm.us.kg',
         TVBoxEnabled: false,
         TVBoxPassword: '',
       },
@@ -468,7 +468,7 @@ export async function getConfig(): Promise<AdminConfig> {
     adminConfig.SiteConfig.DanmakuApiBaseUrl =
       adminConfig.SiteConfig.DanmakuApiBaseUrl ||
       process.env.NEXT_PUBLIC_DANMU_API_BASE_URL ||
-      'https://thriving-dragon-80fe24.netlify.app/';
+      'https://dm.stardm.us.kg';
     // TVBox 开关与密码默认值
     const storageType = process.env.NEXT_PUBLIC_STORAGE_TYPE || 'localstorage';
     if (storageType === 'localstorage') {
@@ -741,7 +741,7 @@ export async function resetConfig() {
         process.env.NEXT_PUBLIC_DISABLE_YELLOW_FILTER === 'true',
         DanmakuApiBaseUrl:
           process.env.NEXT_PUBLIC_DANMU_API_BASE_URL ||
-          'https://thriving-dragon-80fe24.netlify.app/',
+          'https://dm.stardm.us.kg',
         TVBoxEnabled: false,
         TVBoxPassword: '',
     },

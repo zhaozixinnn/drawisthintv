@@ -58,7 +58,7 @@ export default async function RootLayout({
     process.env.NEXT_PUBLIC_DISABLE_YELLOW_FILTER === 'true';
   let danmakuApiBaseUrl =
     process.env.NEXT_PUBLIC_DANMU_API_BASE_URL ||
-    'https://thriving-dragon-80fe24.netlify.app/';
+    'https://dm.stardm.us.kg';
   if (storageType !== 'localstorage') {
     const config = await getConfig();
     siteName = config.SiteConfig.SiteName;

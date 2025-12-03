@@ -17,7 +17,7 @@ function getDanmakuApiBaseUrl(): string {
   const baseUrl =
     (window as any).RUNTIME_CONFIG?.DANMU_API_BASE_URL ||
     process.env.NEXT_PUBLIC_DANMU_API_BASE_URL ||
-    'https://thriving-dragon-80fe24.netlify.app/';
+    'https://dm.stardm.us.kg';
 
   return baseUrl;
 }
