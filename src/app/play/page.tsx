@@ -242,7 +242,6 @@ function PlayPageClient() {
   
     // 加载弹幕 URL
     (async () => {
-      setIsDanmakuLoading(true);
       try {
         const url = await getDanmakuBySelectedAnime(
           selectedDanmakuAnime,
@@ -253,8 +252,6 @@ function PlayPageClient() {
       } catch (e) {
         console.error("获取弹幕 URL 失败:", e);
         setDanmukuUrl("");
-      } finally {
-        setIsDanmakuLoading(false);
       }
     })();
   }, [currentEpisodeIndex, selectedDanmakuAnime, selectedDanmakuEpisode, isDanmakuPluginReady]);
