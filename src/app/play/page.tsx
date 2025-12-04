@@ -2166,6 +2166,7 @@ function PlayPageClient() {
                 <div style={{ display: showDanmakuSelector ? 'block' : 'none' }}>
                   <DanmakuSelector
                     videoTitle={videoTitle}
+                    isVisible={showDanmakuSelector}
                     currentEpisode={currentEpisodeIndex + 1}
                     currentEpisodeTitle={
                       detail?.episodes_titles?.[currentEpisodeIndex]
