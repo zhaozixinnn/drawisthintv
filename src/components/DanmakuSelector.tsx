@@ -73,17 +73,15 @@ export default function DanmakuSelector({
     }
   }, [videoTitle]);
 
-  // 当弹幕选择器变为可见时，执行自动搜索（如果尚未手动搜索且尚未搜索过）
+  // 当弹幕选择器变为可见时，执行自动搜索（如果尚未手动搜索）
   useEffect(() => {
     if (!isVisible) return;
     if (!videoTitle) return;
     if (hasManualSearched) return;
-    if (hasSearched) return; // 已经搜索过（可能是手动搜索）
-    if (lastAutoSearchTitleRef.current !== videoTitle) return; // 标题不匹配（应该不会发生，因为上面已经同步）
 
     performSearch(videoTitle, false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isVisible, videoTitle, hasManualSearched, hasSearched]);
+  }, [isVisible, videoTitle, hasManualSearched]);
 
   // 处理手动搜索
   const handleSearch = (e?: React.FormEvent) => {
