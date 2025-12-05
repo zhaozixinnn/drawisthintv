@@ -30,6 +30,7 @@ import { getRequestTimeout, getVideoResolutionFromM3u8 } from '@/lib/utils';
 
 import DanmakuSelector from '@/components/DanmakuSelector';
 import EpisodeSelector from '@/components/EpisodeSelector';
+import { triggerGlobalError } from '@/components/GlobalErrorIndicator';
 import PageLayout from '@/components/PageLayout';
 
 // 扩展 HTMLVideoElement 类型以支持 hls 属性
@@ -944,9 +945,12 @@ function PlayPageClient() {
           setSelectedDanmakuAnime(animeOption);
           setSelectedDanmakuSource(platform);
 
+        }else {
+          triggerGlobalError("自动加载弹幕失败，请手动选择弹幕源");
         }
       } catch (err) {
         console.error("初始化自动加载弹幕失败:", err);
+        triggerGlobalError("自动加载弹幕失败，请手动选择弹幕源");
       } finally {
         setIsDanmakuLoading(false);
       }
