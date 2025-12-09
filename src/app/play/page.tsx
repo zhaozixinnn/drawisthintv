@@ -117,6 +117,7 @@ function PlayPageClient() {
   const [selectedDanmakuEpisode, setSelectedDanmakuEpisode] = useState<number | undefined>(undefined);
   const [showDanmakuSelector, setShowDanmakuSelector] = useState(false);
   const selectedDanmakuSourceRef = useRef<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // 同步 ref
   useEffect(() => {
@@ -975,6 +976,13 @@ function PlayPageClient() {
   useEffect(() => {
     if (!autoDanmakuEnabled || !detail || !isDanmakuPluginReady) return;
 
+    // 取消之前的请求
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     (async () => {
       setIsDanmakuLoading(true);
       try {
@@ -997,8 +1005,11 @@ function PlayPageClient() {
         const season = extractSeasonFromTitle(title);
         const fileName = `${title} S${season}E${epNum} @${platform}`;
 
-        const matches = await matchAnime(fileName);
+        const matches = await matchAnime(fileName, abortController.signal);
         console.log("初始化自动匹配:", matches);
+
+        // 如果请求已被取消，则忽略结果
+        if (abortController.signal.aborted) return;
 
         if (matches.length > 0) {
           const m = matches[0];
@@ -1020,17 +1031,32 @@ function PlayPageClient() {
           setSelectedDanmakuAnime(animeOption);
           setSelectedDanmakuSource(platform);
 
-        }else {
+        } else {
           triggerGlobalError("自动加载弹幕失败，请手动选择弹幕源");
         }
       } catch (err) {
+        // 如果是取消错误，不显示错误
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          console.log('自动加载弹幕已取消');
+          return;
+        }
         console.error("初始化自动加载弹幕失败:", err);
         triggerGlobalError("自动加载弹幕失败，请手动选择弹幕源");
       } finally {
-        setIsDanmakuLoading(false);
+        if (!abortController.signal.aborted) {
+          setIsDanmakuLoading(false);
+        }
       }
     })();
-  }, [currentEpisodeIndex, autoDanmakuEnabled, isDanmakuPluginReady]);
+
+    // 清理函数：当依赖项变化或组件卸载时中止请求
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+    };
+  }, [currentEpisodeIndex, autoDanmakuEnabled, isDanmakuPluginReady, detail, preferredDanmakuPlatform]);
 
 
   // 播放记录处理
