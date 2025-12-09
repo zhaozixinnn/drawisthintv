@@ -1056,7 +1056,7 @@ function PlayPageClient() {
         abortControllerRef.current = null;
       }
     };
-  }, [currentEpisodeIndex, autoDanmakuEnabled, isDanmakuPluginReady, detail, preferredDanmakuPlatform]);
+  }, [currentEpisodeIndex, autoDanmakuEnabled, isDanmakuPluginReady, preferredDanmakuPlatform]);
 
 
   // 播放记录处理
