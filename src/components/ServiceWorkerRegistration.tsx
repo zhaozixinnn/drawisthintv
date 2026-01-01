@@ -17,6 +17,25 @@ export default function ServiceWorkerRegistration() {
         .then((reg) => {
           // eslint-disable-next-line no-console
           console.log('Service Worker 注册成功:', reg.scope);
+
+          // 监听 Service Worker 更新
+          reg.addEventListener('updatefound', () => {
+            const newWorker = reg.installing;
+            newWorker?.addEventListener('statechange', () => {
+              if (
+                newWorker.state === 'activated' &&
+                navigator.serviceWorker.controller
+              ) {
+                // eslint-disable-next-line no-console
+                console.log('新的 Service Worker 已激活');
+              }
+            });
+          });
+
+          // 定期检查更新
+          setInterval(() => {
+            reg.update();
+          }, 60000); // 每分钟检查一次
         })
         .catch((err) => {
           // eslint-disable-next-line no-console
