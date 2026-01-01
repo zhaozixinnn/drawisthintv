@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+
 import { detectStreamingCapability } from '@/lib/stream-saver-fallback';
 
 /**
@@ -12,14 +13,11 @@ import { detectStreamingCapability } from '@/lib/stream-saver-fallback';
  * 会自动降级到 File System Access API 或 Blob 方案。
  */
 export default function ServiceWorkerRegistration() {
-  const [capability, setCapability] = useState<ReturnType<typeof detectStreamingCapability> | null>(null);
-
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     // 检测流式下载能力
     const cap = detectStreamingCapability();
-    setCapability(cap);
 
     // 如果支持 Service Worker，尝试注册
     if (cap.method === 'service-worker') {

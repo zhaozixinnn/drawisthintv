@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, no-console */
 /**
  * StreamSaver 降级方案
  * 在不支持 Service Worker 的环境中使用
@@ -20,7 +21,7 @@ export function supportsFileSystemAccess(): boolean {
  */
 export async function createFileSystemWriteStream(
   filename: string,
-  fileSize?: number
+  _fileSize?: number
 ): Promise<WritableStream<Uint8Array> | null> {
   if (!supportsFileSystemAccess()) {
     return null;
