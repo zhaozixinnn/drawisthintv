@@ -72,11 +72,19 @@ if (process.env.NODE_ENV === 'development') {
   setupDevPlatform();
 }
 
+// 检测是否为 Cloudflare Pages 构建
+const isCloudflarePages = process.env.CF_PAGES === '1' || 
+  process.env.CLOUDFLARE_PAGES === '1' ||
+  process.argv.includes('pages:build');
+
 const withPWA = require('next-pwa')({
   dest: 'public',
-  disable: process.env.NODE_ENV === 'development',
-  register: false, // 改为 false，因为我们手动注册
+  // 在开发环境或 Cloudflare Pages 上禁用 next-pwa
+  disable: process.env.NODE_ENV === 'development' || isCloudflarePages,
+  register: true,
   skipWaiting: true,
+  // 自定义 Service Worker，避免与 /sw.js 冲突
+  swSrc: isCloudflarePages ? undefined : 'service-worker.js',
 });
 
 module.exports = withPWA(nextConfig);
