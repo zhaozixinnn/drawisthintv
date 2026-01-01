@@ -1,7 +1,7 @@
 'use client';
 
 import { Download, Pause, Play, Trash2, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { downloadM3U8Video, DownloadProgress, M3U8Task, parseM3U8 } from '@/lib/m3u8-downloader';
 
@@ -99,26 +99,80 @@ const DownloadManager = ({ isOpen, onClose }: DownloadManagerProps) => {
     }
   }, [tasks]);
 
-  // 监听来自播放页面的添加下载任务事件
-  useEffect(() => {
-    const handleAddTaskEvent = (event: CustomEvent) => {
-      const config = event.detail;
-      addTaskFromConfig(config);
-    };
+  // 执行下载任务（核心下载逻辑）
+  const executeDownload = useCallback(async (
+    taskId: string, 
+    parsedTask: M3U8Task, 
+    controller: AbortController,
+    downloadType: 'TS' | 'MP4',
+    concurrency: number,
+    rangeMode: boolean,
+    startSegment: number,
+    endSegment: number,
+    _useStreamSaver = false
+  ) => {
 
-    if (typeof window !== 'undefined') {
-      window.addEventListener('addDownloadTask', handleAddTaskEvent as EventListener);
-    }
-
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('addDownloadTask', handleAddTaskEvent as EventListener);
+    try {
+      const downloadTask = { ...parsedTask };
+      downloadTask.type = downloadType;
+      
+      if (rangeMode) {
+        downloadTask.rangeDownload = {
+          startSegment: Math.max(1, Math.min(startSegment, parsedTask.tsUrlList.length)),
+          endSegment: Math.max(1, Math.min(endSegment, parsedTask.tsUrlList.length)),
+          targetSegment: Math.abs(endSegment - startSegment) + 1,
+        };
       }
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+      await downloadM3U8Video(
+        downloadTask,
+        (prog: DownloadProgress) => {
+          setTasks(prev => prev.map(t => {
+            if (t.id !== taskId) return t;
+            
+            return { 
+              ...t, 
+              progress: prog.percentage,
+              current: prog.current,
+              total: prog.total,
+              status: prog.status === 'done' ? 'completed' : 'downloading'
+            };
+          }));
+        },
+        controller.signal,
+        concurrency
+      );
+      
+      // 确保最终状态为已完成（如果进度回调没有正确设置）
+      setTasks(prev => prev.map(t => {
+        if (t.id !== taskId) return t;
+        // 只在状态不是 completed 时才更新
+        if (t.status === 'completed') return t;
+        return { ...t, status: 'completed' as const, progress: 100, abortController: undefined };
+      }));
+    } catch (error) {
+      if (error instanceof Error && error.message === '下载已取消') {
+        // eslint-disable-next-line no-console
+        console.log('用户取消下载');
+        setTasks(prev => prev.map(t => 
+          t.id === taskId 
+            ? { ...t, status: 'paused' as const, abortController: undefined }
+            : t
+        ));
+      } else {
+        // eslint-disable-next-line no-console
+        console.error('下载失败:', error);
+        setTasks(prev => prev.map(t => 
+          t.id === taskId 
+            ? { ...t, status: 'error' as const, abortController: undefined }
+            : t
+        ));
+      }
+    }
+  }, []);
 
   // 从配置创建并开始下载任务
-  const addTaskFromConfig = (config: {
+  const addTaskFromConfig = useCallback((config: {
     url: string;
     title: string;
     downloadType: 'TS' | 'MP4';
@@ -167,78 +221,25 @@ const DownloadManager = ({ isOpen, onClose }: DownloadManagerProps) => {
       config.endSegment,
       config.useStreamSaver
     );
-  };
+  }, [executeDownload]);
 
-  // 执行下载任务（核心下载逻辑）
-  const executeDownload = async (
-    taskId: string, 
-    parsedTask: M3U8Task, 
-    controller: AbortController,
-    downloadType: 'TS' | 'MP4',
-    concurrency: number,
-    rangeMode: boolean,
-    startSegment: number,
-    endSegment: number,
-    _useStreamSaver = false
-  ) => {
+  // 监听来自播放页面的添加下载任务事件
+  useEffect(() => {
+    const handleAddTaskEvent = (event: CustomEvent) => {
+      const config = event.detail;
+      addTaskFromConfig(config);
+    };
 
-    try {
-      const downloadTask = { ...parsedTask };
-      downloadTask.type = downloadType;
-      
-      if (rangeMode) {
-        downloadTask.rangeDownload = {
-          startSegment: Math.max(1, Math.min(startSegment, parsedTask.tsUrlList.length)),
-          endSegment: Math.max(1, Math.min(endSegment, parsedTask.tsUrlList.length)),
-          targetSegment: Math.abs(endSegment - startSegment) + 1,
-        };
-      }
-
-      await downloadM3U8Video(
-        downloadTask,
-        (prog: DownloadProgress) => {
-          setTasks(prev => prev.map(t => {
-            if (t.id !== taskId) return t;
-            
-            return { 
-              ...t, 
-              progress: prog.percentage,
-              current: prog.current,
-              total: prog.total,
-              status: prog.status === 'done' ? 'completed' : 'downloading'
-            };
-          }));
-        },
-        controller.signal,
-        concurrency
-      );
-      
-      // 下载完成
-      setTasks(prev => prev.map(t => 
-        t.id === taskId 
-          ? { ...t, status: 'completed' as const, progress: 100, abortController: undefined }
-          : t
-      ));
-    } catch (error) {
-      if (error instanceof Error && error.message === '下载已取消') {
-        // eslint-disable-next-line no-console
-        console.log('用户取消下载');
-        setTasks(prev => prev.map(t => 
-          t.id === taskId 
-            ? { ...t, status: 'paused' as const, abortController: undefined }
-            : t
-        ));
-      } else {
-        // eslint-disable-next-line no-console
-        console.error('下载失败:', error);
-        setTasks(prev => prev.map(t => 
-          t.id === taskId 
-            ? { ...t, status: 'error' as const, abortController: undefined }
-            : t
-        ));
-      }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('addDownloadTask', handleAddTaskEvent as EventListener);
     }
-  };
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('addDownloadTask', handleAddTaskEvent as EventListener);
+      }
+    };
+  }, [addTaskFromConfig]);
 
   // 执行下载任务（从任务配置启动）
   const startTaskDownload = async (taskId: string, parsedTask: M3U8Task) => {
