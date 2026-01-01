@@ -2491,6 +2491,7 @@ function PlayPageClient() {
             ? `_${detail?.episodes_titles?.[currentEpisodeIndex] || `第${currentEpisodeIndex + 1}集`}`
             : ''
         }`}
+        skipConfig={skipConfig}
       />
     </PageLayout>
   );

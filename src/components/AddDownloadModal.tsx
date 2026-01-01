@@ -21,6 +21,11 @@ interface AddDownloadModalProps {
   }) => void;
   initialUrl?: string;
   initialTitle?: string;
+  skipConfig?: {
+    enable: boolean;
+    intro_time: number;
+    outro_time: number;
+  };
 }
 
 /**
@@ -37,7 +42,7 @@ function formatDuration(seconds: number): string {
   return `${minutes}:${String(secs).padStart(2, '0')}`;
 }
 
-const AddDownloadModal = ({ isOpen, onClose, onAddTask, initialUrl = '', initialTitle = '' }: AddDownloadModalProps) => {
+const AddDownloadModal = ({ isOpen, onClose, onAddTask, initialUrl = '', initialTitle = '', skipConfig }: AddDownloadModalProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [task, setTask] = useState<M3U8Task | null>(null);
   const [downloadType, setDownloadType] = useState<'TS' | 'MP4'>('TS');
@@ -48,6 +53,7 @@ const AddDownloadModal = ({ isOpen, onClose, onAddTask, initialUrl = '', initial
   const [useStreamSaver, setUseStreamSaver] = useState(false);
   const [editableUrl, setEditableUrl] = useState('');
   const [editableTitle, setEditableTitle] = useState('');
+  const [syncWithSkipConfig, setSyncWithSkipConfig] = useState(false);
 
   // 从 localStorage 恢复用户配置
   useEffect(() => {
@@ -77,6 +83,8 @@ const AddDownloadModal = ({ isOpen, onClose, onAddTask, initialUrl = '', initial
       setEditableUrl(initialUrl || '');
       setEditableTitle(initialTitle || '');
       setTask(null);
+      setStartSegment(1);
+      setEndSegment(0);
     }
   }, [isOpen, initialUrl, initialTitle]);
 
@@ -96,6 +104,32 @@ const AddDownloadModal = ({ isOpen, onClose, onAddTask, initialUrl = '', initial
       handleParse();
     }
   }, [isOpen, editableUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 当task解析完成且syncWithSkipConfig为true时，自动执行同步逻辑
+  useEffect(() => {
+    if (task && syncWithSkipConfig && skipConfig) {
+      const totalSegments = task.tsUrlList.length;
+      const segmentDuration = (task.durationSecond || 0) / totalSegments;
+      
+      if (segmentDuration > 0) {
+        // 计算起始片段（跳过片头）
+        let introSegment = 1;
+        if (skipConfig.intro_time > 0) {
+          introSegment = Math.min(totalSegments, Math.ceil(skipConfig.intro_time / segmentDuration) + 1);
+        }
+        
+        // 计算结束片段（跳过片尾）
+        let outroSegment = totalSegments;
+        if (skipConfig.outro_time !== 0) {
+          const actualEndTime = task.durationSecond + skipConfig.outro_time;
+          outroSegment = Math.max(1, Math.min(totalSegments, Math.floor(actualEndTime / segmentDuration)));
+        }
+        
+        setStartSegment(introSegment);
+        setEndSegment(outroSegment);
+      }
+    }
+  }, [task, syncWithSkipConfig, skipConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 解析 M3U8
   const handleParse = async () => {
@@ -284,17 +318,62 @@ const AddDownloadModal = ({ isOpen, onClose, onAddTask, initialUrl = '', initial
 
               {/* 范围下载 */}
               <div className="mt-4">
-                <label className="flex items-center gap-2 cursor-pointer mb-2">
-                  <input
-                    type="checkbox"
-                    checked={rangeMode}
-                    onChange={(e) => setRangeMode(e.target.checked)}
-                    className="w-4 h-4"
-                  />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    范围下载
-                  </span>
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={rangeMode}
+                      onChange={(e) => setRangeMode(e.target.checked)}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      范围下载
+                    </span>
+                  </label>
+                  {rangeMode && (
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={syncWithSkipConfig}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setSyncWithSkipConfig(checked);
+                          if (checked && task) {
+                            // 根据跳过配置计算起始和结束片段
+                            const totalSegments = task.tsUrlList.length;
+                            const segmentDuration = (task.durationSecond || 0) / totalSegments;
+                            
+                            if (segmentDuration > 0) {
+                              // 计算起始片段（跳过片头）
+                              let introSegment = 1;
+                              if (skipConfig && skipConfig.intro_time > 0) {
+                                // 片头时间对应的片段数 + 1（从下一个片段开始）
+                                introSegment = Math.min(totalSegments, Math.ceil(skipConfig.intro_time / segmentDuration) + 1);
+                              }
+                              
+                              // 计算结束片段（跳过片尾）
+                              let outroSegment = totalSegments;
+                              if (skipConfig && skipConfig.outro_time !== 0) {
+                                // 实际结束时间 = 总时长 + 片尾时间
+                                // 片尾时间通常是负数，表示在结束前多少秒停止
+                                const actualEndTime = task.durationSecond + skipConfig.outro_time;
+                                // 计算这个时间点对应的片段编号（向下取整，确保不超过这个时间）
+                                outroSegment = Math.max(1, Math.min(totalSegments, Math.floor(actualEndTime / segmentDuration)));
+                              }
+                              
+                              setStartSegment(introSegment);
+                              setEndSegment(outroSegment);
+                            }
+                          }
+                        }}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-xs text-gray-600 dark:text-gray-400">
+                        同步跳过配置
+                      </span>
+                    </label>
+                  )}
+                </div>
 
                 {rangeMode && (
                   <div className="grid grid-cols-2 gap-4">
@@ -327,7 +406,7 @@ const AddDownloadModal = ({ isOpen, onClose, onAddTask, initialUrl = '', initial
                         className="w-full"
                       />
                       <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {formatDuration(((endSegment - 1) * (task.durationSecond || 0)) / task.tsUrlList.length)}
+                        {formatDuration((endSegment * (task.durationSecond || 0)) / task.tsUrlList.length)}
                       </div>
                     </div>
                   </div>
