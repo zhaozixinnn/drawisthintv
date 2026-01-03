@@ -334,14 +334,17 @@ export async function downloadM3U8Video(
   if (streamMode !== 'disabled') {
     try {
       // 移除标题中已有的视频扩展名，避免重复
-      const cleanTitle = task.title.replace(/\.(mp4|ts|m3u8)$/i, '');
-      const filename = `${cleanTitle}.${task.type === 'MP4' ? 'mp4' : 'ts'}`;
-      
+      let cleanTitle = task.title.replace(/\.(mp4|ts|m3u8)$/i, '');
+      let ext = task.type === 'MP4' ? '.mp4' : '.ts';
+      // 强制加正确后缀
+      let filename = cleanTitle + ext;
+      if (!filename.toLowerCase().endsWith(ext)) filename += ext;
+
       // 估算文件大小（如果可能）
       const estimatedSize = task.totalSize || undefined;
-      
+
       let stream: WritableStream<Uint8Array> | null = null;
-      
+
       // 根据用户选择的模式创建写入流
       if (streamMode === 'service-worker') {
         // 使用 Service Worker 模式
@@ -360,10 +363,10 @@ export async function downloadM3U8Video(
           throw new Error('用户取消了文件选择');
         }
       }
-      
+
       if (stream) {
         writer = stream.getWriter();
-        
+
         // 如果是 MP4 格式，初始化流式转码器
         if (task.type === 'MP4') {
           streamingTransmuxer = new StreamingTransmuxer(writer, rangeDuration);
