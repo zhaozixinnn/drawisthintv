@@ -477,7 +477,11 @@ export async function downloadM3U8Video(
           if (streamingTransmuxer) {
             await streamingTransmuxer.pushAndTransmux(new Uint8Array(data));
           } else {
-            await writer.write(new Uint8Array(data));
+            if (writer) {
+              await writer.write(new Uint8Array(data));
+            } else {
+              throw new Error('Writer is not initialized');
+            }
           }
           pendingWrites.delete(nextWriteIndex);
           nextWriteIndex++;
