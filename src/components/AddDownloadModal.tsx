@@ -130,26 +130,41 @@ const AddDownloadModal = ({ isOpen, onClose, onAddTask, initialUrl = '', initial
   // 当task解析完成且syncWithSkipConfig为true时，自动执行同步逻辑
   useEffect(() => {
     if (task && syncWithSkipConfig && skipConfig) {
-      const totalSegments = task.tsUrlList.length;
-      const segmentDuration = (task.durationSecond || 0) / totalSegments;
-      
-      if (segmentDuration > 0) {
-        // 计算起始片段（跳过片头）
-        let introSegment = 1;
-        if (skipConfig.intro_time > 0) {
-          introSegment = Math.min(totalSegments, Math.ceil(skipConfig.intro_time / segmentDuration) + 1);
+      const segs = task.segmentDurations || [];
+      // 计算起始片段（跳过片头）
+      let introSegment = 1;
+      if (skipConfig.intro_time > 0 && segs.length > 0) {
+        let acc = 0;
+        let lastIdx = 0;
+        for (let i = 0; i < segs.length; i++) {
+          if (acc + segs[i] <= skipConfig.intro_time) {
+            acc += segs[i];
+            lastIdx = i;
+          } else {
+            break;
+          }
         }
-        
-        // 计算结束片段（跳过片尾）
-        let outroSegment = totalSegments;
-        if (skipConfig.outro_time !== 0) {
-          const actualEndTime = task.durationSecond + skipConfig.outro_time;
-          outroSegment = Math.max(1, Math.min(totalSegments, Math.floor(actualEndTime / segmentDuration)));
-        }
-        
-        setStartSegment(introSegment);
-        setEndSegment(outroSegment);
+        introSegment = Math.min(task.tsUrlList.length, lastIdx + 2); // 下一个片段开始
       }
+
+      // 计算结束片段（跳过片尾）
+      let outroSegment = task.tsUrlList.length;
+      if (skipConfig.outro_time !== 0 && segs.length > 0) {
+        let acc = 0;
+        const targetTime = (task.durationSecond || 0) + skipConfig.outro_time;
+        outroSegment = task.tsUrlList.length;
+        for (let i = 0; i < segs.length; i++) {
+          acc += segs[i];
+          if (acc >= targetTime) {
+            outroSegment = i + 1;
+            break;
+          }
+        }
+        outroSegment = Math.max(1, Math.min(task.tsUrlList.length, outroSegment));
+      }
+
+      setStartSegment(introSegment);
+      setEndSegment(outroSegment);
     }
   }, [task, syncWithSkipConfig, skipConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
