@@ -29,19 +29,7 @@ interface AddDownloadModalProps {
   };
 }
 
-/**
- * 格式化秒数为时长字符串 (HH:MM:SS 或 MM:SS)
- */
-function formatDuration(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  
-  if (hours > 0) {
-    return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  }
-  return `${minutes}:${String(secs).padStart(2, '0')}`;
-}
+import { formatTime } from '@/lib/formatTime';
 
 const AddDownloadModal = ({ isOpen, onClose, onAddTask, initialUrl = '', initialTitle = '', skipConfig }: AddDownloadModalProps) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -440,7 +428,7 @@ const AddDownloadModal = ({ isOpen, onClose, onAddTask, initialUrl = '', initial
             <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-700/50">
               <h3 className="mb-2 font-medium text-gray-900 dark:text-white">解析结果</h3>
               <div className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
-                <p>总时长: {formatDuration(task.durationSecond || 0)}</p>
+                <p>总时长: {formatTime(task.durationSecond || 0)}</p>
                 <p>片段数: {task.tsUrlList.length}</p>
                 {task.aesConf?.key && <p className="text-yellow-600 dark:text-yellow-400">🔒 已加密 (AES-128)</p>}
               </div>
@@ -507,9 +495,22 @@ const AddDownloadModal = ({ isOpen, onClose, onAddTask, initialUrl = '', initial
                 {rangeMode && (
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                        起始片段: {startSegment}
-                      </label>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="block text-xs text-gray-600 dark:text-gray-400">起始片段:</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={task.tsUrlList.length}
+                          value={startSegment}
+                          onChange={(e) => {
+                            let v = parseInt(e.target.value, 10);
+                            if (isNaN(v)) v = 1;
+                            v = Math.max(1, Math.min(task.tsUrlList.length, v));
+                            setStartSegment(v);
+                          }}
+                          className="w-20 px-2 py-1 rounded text-sm bg-[#f5f5f5] dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none border-none focus:outline-none focus:border-none focus:ring-0 ml-1"
+                        />
+                      </div>
                       <input
                         type="range"
                         min="1"
@@ -519,13 +520,30 @@ const AddDownloadModal = ({ isOpen, onClose, onAddTask, initialUrl = '', initial
                         className="w-full"
                       />
                       <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {formatDuration(((startSegment - 1) * (task.durationSecond || 0)) / task.tsUrlList.length)}
+                        {formatTime(
+                          task.segmentDurations
+                            ? task.segmentDurations.slice(0, startSegment - 1).reduce((a, b) => a + b, 0)
+                            : 0
+                        )}
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                        结束片段: {endSegment}
-                      </label>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="block text-xs text-gray-600 dark:text-gray-400">结束片段:</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={task.tsUrlList.length}
+                          value={endSegment}
+                          onChange={(e) => {
+                            let v = parseInt(e.target.value, 10);
+                            if (isNaN(v)) v = 1;
+                            v = Math.max(1, Math.min(task.tsUrlList.length, v));
+                            setEndSegment(v);
+                          }}
+                          className="w-20 px-2 py-1 rounded text-sm bg-[#f5f5f5] dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none border-none focus:outline-none focus:border-none focus:ring-0 ml-1"
+                        />
+                      </div>
                       <input
                         type="range"
                         min="1"
@@ -535,7 +553,11 @@ const AddDownloadModal = ({ isOpen, onClose, onAddTask, initialUrl = '', initial
                         className="w-full"
                       />
                       <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {formatDuration((endSegment * (task.durationSecond || 0)) / task.tsUrlList.length)}
+                        {formatTime(
+                          task.segmentDurations
+                            ? task.segmentDurations.slice(0, endSegment).reduce((a, b) => a + b, 0)
+                            : 0
+                        )}
                       </div>
                     </div>
                   </div>
