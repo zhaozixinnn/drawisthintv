@@ -19,19 +19,20 @@ interface ApiSearchItem {
 const M3U8_PATTERN = /(https?:\/\/[^"'\s]+?\.m3u8)/g;
 
 /** 封装带超时的 fetch，区分超时和网络错误 */
-async function fetchWithTimeout(url: string, options: RequestInit, timeout = 3000): Promise<Response> {
+async function fetchWithTimeout(url: string, options: RequestInit, timeout = 30000): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
   try {
     return await fetch(url, { ...options, signal: controller.signal });
-  } catch (error: any) {
+  } catch (error: unknown) {
     // 区分超时错误和网络错误
-    if (error.name === 'AbortError') {
+    const err = error as Error;
+    if (err.name === 'AbortError') {
       throw new Error('请求超时');
-    } else if (error.message?.includes('Failed to fetch') || error.message?.includes('fetch failed') || error.message?.includes('NetworkError')) {
+    } else if (err.message?.includes('Failed to fetch') || err.message?.includes('fetch failed') || err.message?.includes('NetworkError')) {
       throw new Error('请求失败');
     } else {
-      throw new Error(`网络错误: ${error.message || '未知错误'}`);
+      throw new Error(`网络错误: ${err.message || '未知错误'}`);
     }
   } finally {
     clearTimeout(timeoutId);
